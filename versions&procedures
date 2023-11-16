@@ -1,0 +1,281 @@
+CREATE OR ALTER PROCEDURE new_table(
+	@tableName varchar(15),
+	@idName varchar(15),@idType varchar(15),
+	@iAttr varchar(15), @iType varchar(15),
+	@iiAttr varchar(15), @iiType varchar(15))
+AS
+	begin 
+	declare @newT as varchar(MAX)
+	set @newT='CREATE TABLE '+@tableName+'('+
+			@idName+' '+@idType+' PRIMARY KEY, '+
+			@iAttr+' '+@iType+ ','+
+			@iiAttr+' '+@iiType+ ')';
+	print(@newT)
+
+	declare @param as varchar(MAX)
+	set @param=''''+@idName+''','''+@idType+''','''+@iAttr+''','''+@iType+''','''+@iiAttr+''','''+@iiType+'''';
+	print(@param)
+
+	--DECLARE @currentID as INT, @verID as INT
+	--SET @currentID = (SELECT id FROM CurrentVersion);
+
+	--INSERT INTO dbo.Versions VALUES ('new_table',@tableName,' ',@param);
+
+	UPDATE CurrentVersion
+    SET id = id+1;
+
+	DECLARE @id as int
+	SELECT @id=id from CurrentVersion
+	DECLARE @lastID as int
+	SELECT TOP 1 @lastID=id from Versions ORDER BY id DESC 
+
+	if(@id>=@lastID or @lastID IS NULL)
+		INSERT INTO dbo.Versions VALUES (@id,'new_table',@tableName,' ',@param);
+
+	exec(@newT)
+	end
+GO
+
+CREATE OR ALTER PROCEDURE new_table_rb(@tableName varchar(15))
+AS
+	begin
+	declare @newT as varchar(MAX)
+	set @newT='DROP TABLE '+@tableName;
+	print(@newT)
+	
+	--UPDATE CurrentVersion
+    --SET id = id-1;
+
+	exec(@newT)
+	end
+GO
+
+CREATE OR ALTER PROCEDURE new_col(@tableName varchar(15),
+	@new_col varchar(15),@inew_type varchar(15))
+AS
+	begin 
+	declare @newT as varchar(MAX)
+	set @newT='ALTER TABLE '+@tableName+' ADD '+@new_col+' '+@inew_type;
+	print(@newT)
+
+	UPDATE CurrentVersion
+    SET id = id+1;
+
+	DECLARE @id as int
+	SELECT @id=id from CurrentVersion
+	DECLARE @lastID as int
+	SELECT TOP 1 @lastID=id from Versions ORDER BY id DESC 
+
+	if(@id>=@lastID or @lastID IS NULL)
+		INSERT INTO Versions VALUES (@id,'new_col',@tableName,@new_col,@inew_type);
+
+	exec(@newT)
+	end
+GO
+
+CREATE OR ALTER PROCEDURE new_col_rb (@tableName varchar(15),
+	@new_col varchar(15))
+AS
+	begin 
+	declare @drop as varchar(MAX)
+	set @drop='ALTER TABLE '+@tableName+' DROP COLUMN '+@new_col;
+	print(@drop)
+
+	--UPDATE CurrentVersion
+    --SET id = id-1;
+
+	exec(@drop)
+	end
+GO
+
+CREATE OR ALTER PROCEDURE alter_col(@tableName varchar(15),
+	@col varchar(15),@new_type varchar(15))
+AS
+	begin 
+	declare @newT as varchar(MAX)
+	set @newT='ALTER TABLE '+@tableName+' ALTER COLUMN '+@col+' '+@new_type;
+	print(@newT)
+
+	UPDATE CurrentVersion
+    SET id = id+1;
+
+	DECLARE @id as int
+	SELECT @id=id from CurrentVersion
+	DECLARE @lastID as int
+	SELECT TOP 1 @lastID=id from Versions ORDER BY id DESC 
+
+	if(@id>=@lastID or @lastID IS NULL)
+		INSERT INTO Versions VALUES (@id,'alter_col',@tableName,@col,@new_type);
+
+	exec(@newT)
+	end
+GO
+
+CREATE OR ALTER PROCEDURE add_default(@tableName varchar(15),
+	@col varchar(15),@def_wert varchar(15))
+AS
+	begin 
+	declare @newT as varchar(MAX)
+	set @newT='ALTER TABLE '+@tableName+' ADD CONSTRAINT '+@col+'def'+' DEFAULT '+@def_wert+' FOR '+@col;
+	print(@newT)
+
+	UPDATE CurrentVersion
+    SET id = id+1;
+
+	DECLARE @id as int
+	SELECT @id=id from CurrentVersion
+	DECLARE @lastID as int
+	SELECT TOP 1 @lastID=id from Versions ORDER BY id DESC 
+
+	if(@id>=@lastID or @lastID IS NULL)
+		INSERT INTO Versions VALUES (@id,'add_default',@tableName,@col,@def_wert);
+
+	exec(@newT)
+	end
+GO
+
+CREATE OR ALTER PROCEDURE add_default_rb (@tableName varchar(15),
+	@col varchar(15))
+AS
+	begin 
+	declare @drop as varchar(MAX)
+	set @drop='ALTER TABLE '+@tableName+' DROP '+@col+'def';
+	print(@drop)
+
+	--UPDATE CurrentVersion
+    --SET id = id-1;
+
+	exec(@drop)
+	end
+GO
+
+CREATE OR ALTER PROCEDURE new_fk(@tableName varchar(15),@fk varchar(15), @refTable varchar(15))
+AS
+	begin
+	declare @newK as varchar(MAX)
+	set @newK='ALTER TABLE '+@tableName+' ADD CONSTRAINT '+@fk+'_fk FOREIGN KEY ('+@fk+') REFERENCES '+@refTable;
+	print(@newK)
+
+	UPDATE CurrentVersion
+    SET id = id+1;
+
+	DECLARE @id as int
+	SELECT @id=id from CurrentVersion
+	DECLARE @lastID as int
+	SELECT TOP 1 @lastID=id from Versions ORDER BY id DESC 
+
+	if(@id>=@lastID or @lastID IS NULL)
+		INSERT INTO Versions VALUES (@id,'new_fk',@tableName,@fk,@refTable);
+
+	exec(@newK)
+	end
+GO
+
+CREATE OR ALTER	PROCEDURE new_fk_rb(@tableName varchar(15),@fk varchar(15))
+AS
+	begin
+	declare @newK as varchar(MAX)
+	set @newK='ALTER TABLE '+@tableName+' DROP '+@fk+'_fk';
+	print(@newK)
+	--UPDATE CurrentVersion
+    --SET id = id-1;
+	exec(@newK)
+	end
+GO
+
+CREATE OR ALTER PROCEDURE go_to(@versionID INT)
+AS
+	begin
+
+	DECLARE @currentID AS INT,
+		@proz as varchar(max),
+		@tab as varchar(max),
+		@sp as varchar(max),
+		@aux as varchar(max)
+
+	SET @currentID = (SELECT id FROM CurrentVersion);
+
+	if(@versionID<@currentID)
+	while(@versionID<@currentID)
+		begin
+			SELECT @proz = v.Prozedur, 
+			@tab = v.Tabelle,
+			@sp = v.Spalte
+			FROM Versions v 
+			WHERE v.id = @currentID
+
+			declare @reverse_it varchar(max);
+			if(@sp!=' ')
+				set @reverse_it= @proz +'_rb ''' + @tab + ''',''' + @sp + '''';
+			else
+				set @reverse_it= @proz +'_rb ''' + @tab +  '''';
+			print(@reverse_it)
+			exec(@reverse_it)
+
+			UPDATE CurrentVersion
+			SET id = id-1;
+			SET @currentID-=1;
+		end
+	
+	if(@versionID>@currentID)
+	while(@versionID>@currentID)
+		begin
+
+		SELECT @proz = v.Prozedur, 
+		@tab = v.Tabelle,
+		@sp = v.Spalte,@aux = v.Param_aux
+		FROM Versions v 
+		WHERE v.id = @currentID+1 
+
+		declare @do_it varchar(max);
+
+		if(@sp!=' ')
+			if(@aux LIKE '''%''')
+				set @do_it= @proz +' ''' + @tab + ''',''' + @sp + ''','''''+@aux+''''''
+				else
+					set @do_it= @proz +' ''' + @tab + ''',''' + @sp + ''','''+@aux+'''';
+			else
+				set @do_it= @proz  + ' ''' + @tab +''','+@aux;
+		print(@do_it)
+		exec(@do_it)
+
+		SET @currentID = @currentID + 1;
+		end
+
+	end
+GO
+
+
+exec new_table 'Studenten', 'idStud','INT','Vorname_Name', 'VARCHAR(30)','Geburtsdatum', 'DATE';
+exec new_table 'Enrolled', 'idStud','INT','idKurs', 'INT','DateEnrolled', 'DATE';
+exec new_table 'Kurse', 'idKurs','INT','Name_Kurs', 'VARCHAR(30)','ECTS', 'INT';
+exec delete_tab 'Studenten';
+exec delete_tab 'Enrolled';
+exec new_col 'Studenten','etwas', 'int';
+exec drop_col 'Studenten', 'etwas';
+
+--no rollback for this type of operation
+exec alter_col 'Studenten', 'Vorname_Name','char(20)';
+
+exec add_default 'Studenten', 'Vorname_Name', '''test''';
+exec add_default 'Studenten', 'etwas', '1';
+exec add_default_rb 'Studenten', 'Vorname_Name';
+exec new_fk 'Enrolled', 'idStud', 'Studenten';
+exec drop_fk 'Enrolled', 'idStud';
+
+
+--CREATE TABLE Versions(id INT IDENTITY(1,1) PRIMARY KEY, Prozedur VARCHAR(MAX),Tabelle VARCHAR(MAX), Spalte VARCHAR(MAX), Param_aux VARCHAR(MAX));
+CREATE TABLE Versions(id INT PRIMARY KEY, Prozedur VARCHAR(MAX),Tabelle VARCHAR(MAX), Spalte VARCHAR(MAX), Param_aux VARCHAR(MAX));
+DROP TABLE Versions
+CREATE TABLE CurrentVersion(id INT PRIMARY KEY);
+
+INSERT INTO CurrentVersion VALUES(0);
+
+UPDATE CurrentVersion
+SET id=0
+
+exec go_to 7
+
+SELECT *  FROM Versions
+
+SELECT * FROM CurrentVersion

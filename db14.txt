@@ -1,0 +1,69 @@
+USE aufgabe5
+--CREATE NONCLUSTERED INDEX a_neg_par ON Ta(IdA,a3)
+--WHERE a3<0;
+
+--überprüfe existierende Indexe
+EXEC sys.sp_helpindex @objname = N'Ta'
+
+SELECT * 
+FROM sys.indexes 
+WHERE object_id = OBJECT_ID('Ta')
+
+SELECT IdA,a2
+FROM Ta
+WHERE a2%19=0; --unclustered scan
+
+SELECT IdA,a2
+FROM Ta
+WHERE a2=7594	--unclustered seek
+
+SELECT IdA,a3
+FROM Ta
+WHERE IdA>=1000 AND IdA<=5000
+	and a3%1203=0;		--clustered seek
+
+SELECT TOP 100 IdA, a3
+FROM Ta
+WHERE a3%2=0 --clustered scan
+ORDER BY a3 desc
+
+-------------------------
+SELECT a3
+FROM Ta
+--WHERE IdA % 123=0;
+--WHERE a2 between -20 and -10;
+WHERE a2=-100
+
+select * from Ta
+-------------------------
+CREATE NONCLUSTERED INDEX b2_asc ON Tb(b2 asc)
+--WHERE b2 is not null;
+ALTER INDEX b2_asc ON Tb DISABLE	-->clustered scan
+ALTER INDEX b2_asc ON Tb REBUILD
+
+SELECT b3
+FROM Tb
+WHERE b2=-100;	-->unclustered seek + key lookup
+
+select * from Tb
+
+------------------------
+CREATE NONCLUSTERED INDEX Tc_a ON Tc(idA asc)
+CREATE NONCLUSTERED INDEX Tc_b ON Tc(idB desc)
+
+ALTER INDEX Tc_a ON Tb DISABLE	
+ALTER INDEX Tc_a ON Tb REBUILD
+
+ALTER INDEX Tc_b ON Tb DISABLE	
+ALTER INDEX Tc_b ON Tb REBUILD
+
+SELECT idC,Tc.idA,a2,a3,c4
+FROM Tc
+JOIN Ta ON Tc.idA=Ta.idA
+WHERE Tc.idA=100;
+
+SELECT idC,Tc.idB,b2,b3,c4
+FROM Tc
+JOIN Tb ON Tc.idB=Tb.idB
+WHERE Tc.idB between 100 and 400;
+

@@ -1,0 +1,44 @@
+Create or Alter Trigger patienten_insert On Patienten
+After Insert, Update, Delete
+As
+begin
+
+DECLARE @Operation as Char(10)
+IF EXISTS ( SELECT 0 FROM Deleted )
+	IF EXISTS ( SELECT 0 FROM Inserted )
+			SET @Operation='Update'
+		ELSE
+			SET @Operation='Delete'
+	ELSE
+		SET @Operation='Insert'
+
+DECLARE @newtimedate DATETIME2(0)= CONVERT(DATETIME2(0),GETDATE()) --[yyyy-mm-dd hh:mm:ss]
+
+IF EXISTS (SELECT * FROM LogTabelle WHERE Datum_Zeit=@newtimedate AND Typ_Anweisung=@Operation)
+UPDATE LogTabelle
+	SET Tupeln=Tupeln+1
+	WHERE Id=(SELECT Id 
+				FROM LogTabelle 
+				WHERE Datum_Zeit=@newtimedate AND Typ_Anweisung=@Operation)
+ELSE 
+INSERT INTO LogTabelle VALUES (@newtimedate,@Operation,'Patienten',1)
+
+end
+GO
+
+
+INSERT INTO Patienten VALUES ('AB123', 'Albert Burnham', '12-12-2012', NULL)
+INSERT INTO Patienten VALUES ('AB124', 'Al Bu', '12-12-2012', NULL)
+
+DELETE FROM Patienten WHERE PID='AB123'
+DELETE FROM Patienten WHERE PID='AB124'
+
+CREATE TABLE LogTabelle(Id INT IDENTITY(1,1) PRIMARY KEY, Datum_Zeit DATETIME, Typ_Anweisung CHAR(10),Tabelle VARCHAR(15), Tupeln INT)
+
+DROP TABLE LogTabelle
+
+DROP TRIGGER patienten_insert
+DROP TRIGGER patienten_update
+DROP TRIGGER patienten_deleted
+
+SELECT * FROM LogTabelle
